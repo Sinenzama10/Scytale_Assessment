@@ -82,6 +82,7 @@ Before running this project, ensure the following are installed on your system:
   - `main.py`: The main script to run for executing the ETL process.
   - `extract.py`: Module for fetching data from GitHub.
   - `spark_process.py`: Module for processing data with PySpark.
+  - `parquet_check.py`: Module for checking output of Spark processing visually
 - `data/`: Directory for storing fetched JSON data.
 - `output/`: Directory where the transformed Parquet files are saved.
 - `requirements.txt`: Lists the Python package dependencies.
