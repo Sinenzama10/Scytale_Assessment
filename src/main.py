@@ -4,6 +4,8 @@ import os
 import json
 from extract import get_repos, get_pull_requests
 from spark_process import transform_and_save
+# Import the validation function
+from parquet_check import check_parquet_file
 
 def main():
     try:
@@ -13,19 +15,20 @@ def main():
             owner = repo.get('owner').get('login')
             prs = get_pull_requests(owner, repo_name)
             
-            # Assuming data directory exists
             with open(f'../data/{repo_name}_prs.json', 'w') as f:
                 json.dump(prs, f)
         
-        # Assuming the JSON files are saved correctly in the data directory
-        transform_and_save('../data/*.json', '../output/prs_aggregated.parquet')
+        output_parquet_path = '../output/prs_aggregated.parquet'
+        transform_and_save('../data/*.json', output_parquet_path)
+        
+        # After saving the Parquet file, validate it
+        check_parquet_file(output_parquet_path)
         
         # Print completion message
         print("ETL pipeline has been run successfully.")
     
     except Exception as e:
         print(f"An error occurred: {e}")
-        # Log the fact that an error occured
         raise
 
 if __name__ == "__main__":
