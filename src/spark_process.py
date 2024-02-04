@@ -1,7 +1,7 @@
 # src/spark_process.py
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, when, count, max, split
+from pyspark.sql.functions import col, when, count, max, split, lower, trim
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType
 
 def transform_and_save(input_path, output_path):
@@ -50,12 +50,14 @@ def transform_and_save(input_path, output_path):
             .withColumn("repository_owner", col("user.login")) \
             .groupBy("Organization Name", "repository_id", "repository_name", "repository_owner") \
             .agg(
-                count("id").alias("num_prs"),
-                count(when(col("state") == "MERGED", True)).alias("num_prs_merged"),
-                max("merged_at").alias("latest_merged_at")
-            ) \
-            .withColumn("is_compliant",
-                        ((col("num_prs") == col("num_prs_merged")) & col("repository_owner").contains("scytale")).cast("boolean"))
+                  count("id").alias("num_prs"),
+                  count(when(col("merged_at").isNotNull(), True)).alias("num_prs_merged"), #Adjusted logic
+                  max("merged_at").alias("latest_merged_at")
+             ) \
+             .withColumn("is_compliant",
+                         ((col("num_prs") == col("num_prs_merged")) & 
+                          lower(trim(col("repository_owner"))).contains("scytale")).cast("boolean"))
+                            
 
         # Save transformed DataFrame as Parquet, partitioned by 'Organization Name'
         transformed_df.write.partitionBy("Organization Name").mode("overwrite").parquet(output_path)
