@@ -48,7 +48,7 @@ Before running this project, ensure the following are installed on your system:
 ## Setup and Running
 
 1. **Clone the Repository**:
-   - Use `git clone <repository-url>` to clone this project to your local machine.
+   - Use `git clone https://github.com/Sinenzama10/Scytale_Assessment.git` to clone this project to your local machine.
 
 2. **Install Dependencies**:
    - Navigate to the project directory and run:
