@@ -71,7 +71,7 @@ Before running this project, ensure the following are installed on your system:
      ```
      If you are struggling to execute the script as done above navigate to where it is stored locally and executed from within src file:
      ```bash
-     cd ../Scytale_Assessment/src/
+     cd Scytale_Assessment/src/
         python main.py or python3 main.py
     ```   
 
