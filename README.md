@@ -67,8 +67,14 @@ Before running this project, ensure the following are installed on your system:
 4. **Running the Project**:
    - Execute the main script with:
      ```bash
-     python src/main.py
+     python src/main.py or python3 src/main.py
      ```
+     If you are struggling to execute the script as done above navigate to where it is stored locally and executed from within src file:
+     ```bash
+     cd ../Scytale_Assessment/src/
+        python main.py or python3 main.py
+    ```   
+
 
 ## Project Structure
 
@@ -79,6 +85,9 @@ Before running this project, ensure the following are installed on your system:
 - `data/`: Directory for storing fetched JSON data.
 - `output/`: Directory where the transformed Parquet files are saved.
 - `requirements.txt`: Lists the Python package dependencies.
+- `Spark_Process_Book.ipynb`: Used to initially develop the spark process (Ignore and do not run)
 
 ## Additional Notes
-You might find included in the project directory a .ipynb called Spark_Process_Book.ipynb you can ignore this Notebook and don't have to run it. I was using this to build the spark processing queries and also to validate the output of the parquet file, then I transferred it all over to my spark_process.py Notebook. This was simply due to the fact that I am used to using notebooks to visualize outputs because my current company uses Databricks at the moment which is very Notebok orientated.
+You might find included in the project directory a .ipynb called Spark_Process_Book.ipynb you can ignore this Notebook completely. I was using this to build the spark processing queries and also to validate the output of the parquet file, then I transferred it all over to my spark_process.py Notebook. This was simply due to the fact that I am used to using notebooks to visualize outputs because my current company uses Databricks at the moment which is very Notebok orientated.
+
+It was the basis of my spark process build however I improved on it by writing the parquet file out with a partition
