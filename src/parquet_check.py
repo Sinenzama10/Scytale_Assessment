@@ -3,6 +3,24 @@
 from pyspark.sql import SparkSession
 
 def check_parquet_file(parquet_file_path):
+    """
+    Reads a Parquet file, reorders its columns to prioritize 'Organization Name' if present, 
+    and displays information about the data.
+
+    This function initializes a Spark session, reads the specified Parquet file into a DataFrame,
+    and if 'Organization Name' exists among its columns, reorders the DataFrame to make it the first column.
+    It then prints the DataFrame's schema, displays the first few rows, shows the total row count, 
+    and finally stops the Spark session to release resources.
+
+    Parameters:
+    - parquet_file_path: str, the file system path to the Parquet file to be processed.
+
+    Effects:
+    - Prints the DataFrame schema, showing the structure of the data including column names and types.
+    - Displays the first few rows of the DataFrame for a preview of the data.
+    - Prints the total number of rows in the DataFrame, providing a sense of the dataset's size.
+    - Stops the Spark session to clean up resources.
+    """
     spark = SparkSession.builder.appName("ParquetFileCheck").getOrCreate()
     
     # Read the Parquet file
@@ -27,3 +45,4 @@ def check_parquet_file(parquet_file_path):
     
     # Stop the Spark session
     spark.stop()
+
