@@ -47,7 +47,7 @@ def transform_and_save(input_path, output_path):
         transformed_df = df.withColumn("Organization Name", split(col("head.repo.full_name"), "/")[0]) \
             .withColumn("repository_id", col("head.repo.id")) \
             .withColumn("repository_name", col("head.repo.name")) \
-            .withColumn("repository_owner", col("user.login")) \
+            .withColumn("repository_owner", split(col("head.repo.full_name"), "/").getItem(0)) \
             .groupBy("Organization Name", "repository_id", "repository_name", "repository_owner") \
             .agg(
                   count("id").alias("num_prs"),
