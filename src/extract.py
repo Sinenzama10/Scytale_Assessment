@@ -57,28 +57,42 @@ def get_repos():
 
     return repos
 
-def get_pull_requests(owner, repo):
+def get_repository_info(owner, repo):
     """
-    Fetches all pull requests for a specific repository from GitHub.
+    Fetches metadata for a specific repository from GitHub if the repository is empty.
     
     Parameters:
     - owner (str): The username of the repository owner.
     - repo (str): The repository name.
     
     Returns:
-    - prs (list): A list of pull request data in JSON format.
-    
-    This function makes paginated API calls to GitHub to fetch all pull requests for the specified
-    repository, utilizing the safe_request function to respect rate limits and handle pagination.
+    - repo_info (dict): Metadata of the repository in JSON format, or an empty dict if not found.
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    response = safe_request(url, headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to fetch repository info for {owner}/{repo}. Status Code: {response.status_code}")
+        return {}
+
+def get_pull_requests(owner, repo):
+    """
+    Modified to fetch repository information if the repository is empty.
     """
     prs = []
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state=all"
     headers = {'Authorization': f'token {GITHUB_TOKEN}'}
 
-    while url:
-        response = safe_request(url, headers)
-        prs.extend(response.json())
-        url = response.links.get('next', {}).get('url', None)
+    response = safe_request(url, headers)
+    if response.status_code == 200 and response.json():
+        while url:
+            prs.extend(response.json())
+            url = response.links.get('next', {}).get('url', None)
+    else:
+        print(f"No pull requests found for {repo}. Fetching repository info.")
+        return get_repository_info(owner, repo)  # Fetch repository info if PRs are not found
 
     return prs
 
