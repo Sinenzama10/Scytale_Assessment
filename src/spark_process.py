@@ -1,21 +1,12 @@
 # src/spark_process.py
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, when, count, max, split, expr, lit, coalesce
+from pyspark.sql.functions import col, when, count, max, split, expr, lit, coalesce, lower
 from pyspark.sql.types import StructType, StructField, StringType, TimestampType, IntegerType, BooleanType
 
 def transform_and_save(input_path, output_path):
-    """
-    Reads JSON files from the specified input path, transforms the data according to the defined schema,
-    and saves the transformed data as a Parquet file partitioned by 'Organization Name' to the specified output path.
-    
-    Parameters:
-    - input_path: Path to the input JSON files.
-    - output_path: Path where the output Parquet file should be saved.
-    """
     spark = SparkSession.builder.appName("GitHub Data Processing").getOrCreate()
 
-    # Adjusted schema to include repository information
     schema = StructType([
         StructField("id", StringType(), True),
         StructField("state", StringType(), True),
@@ -34,7 +25,6 @@ def transform_and_save(input_path, output_path):
                 StructField("full_name", StringType(), True)
             ]), True)
         ]), True),
-        # Additional fields for repository details
         StructField("name", StringType(), True),
         StructField("owner", StructType([
             StructField("login", StringType(), True)
@@ -44,10 +34,8 @@ def transform_and_save(input_path, output_path):
 
     df = spark.read.schema(schema).json(input_path)
 
-    # Identify if the data row is PR or repository info based on 'title' or 'name' field presence
     df = df.withColumn("DataType", when(col("title").isNotNull(), "PR").otherwise("Repo"))
 
-    # Process PR and Repo data separately using 'DataType' column
     transformed_df = df.withColumn("Organization Name", when(col("DataType") == "PR", split(col("head.repo.full_name"), "/")[0]).otherwise(split(col("owner.login"), "/")[0])) \
                        .withColumn("repository_id", coalesce(col("head.repo.id"), col("id"))) \
                        .withColumn("repository_name", coalesce(col("head.repo.name"), col("name"))) \
@@ -58,9 +46,16 @@ def transform_and_save(input_path, output_path):
                            count(when(col("merged_at").isNotNull(), True)).alias("num_prs_merged"),
                            max("merged_at").alias("latest_merged_at")
                        ) \
-                       .withColumn("is_compliant", expr("num_prs_merged > 0 AND lower(trim(repository_owner)) LIKE '%scytale%'").cast(BooleanType()))
+                       .withColumn("is_compliant", 
+                                   (col("num_prs") == col("num_prs_merged")) & 
+                                   #(col("num_prs") > 0) &   Not sure what to do about empty repo but this is an option
+                                   lower(col("repository_owner")).contains("scytale")
+                       )
 
     transformed_df.write.partitionBy("Organization Name").mode("overwrite").parquet(output_path)
 
     spark.stop()
+
+
+
 
