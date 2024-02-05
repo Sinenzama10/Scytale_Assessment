@@ -4,6 +4,27 @@ import time
 import requests  # Ensure requests is imported if not already
 from config import GITHUB_TOKEN, ORG_NAME  # Import variables from config.py
 
+def check_rate_limit():
+    """
+    Checks the current rate limit status with GitHub's API.
+    
+    Returns:
+    - remaining (int): The number of requests remaining in the current rate limit window.
+    - reset_time (int): The time at which the current rate limit window resets, in Unix epoch seconds.
+    
+    This function makes an API call to GitHub's rate limit endpoint to check the current status of
+    the core rate limit. It returns the number of remaining requests and the reset time to be used
+    for managing subsequent API calls within rate limits.
+    """
+    url = "https://api.github.com/rate_limit"
+    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    response = requests.get(url, headers=headers).json()
+    core_limit = response['resources']['core']
+    remaining = core_limit['remaining']
+    reset_time = core_limit['reset']
+
+    return remaining, reset_time
+
 def safe_request(url, headers):
     """
     Makes a safe HTTP GET request to the specified URL, handling GitHub's rate limiting by waiting or retrying as necessary.
@@ -59,7 +80,7 @@ def get_repos():
 
 def get_repository_info(owner, repo):
     """
-    Fetches metadata for a specific repository from GitHub if the repository is empty.
+    Fetches metadata for a specific repository from GitHub.
     
     Parameters:
     - owner (str): The username of the repository owner.
@@ -79,7 +100,17 @@ def get_repository_info(owner, repo):
 
 def get_pull_requests(owner, repo):
     """
-    Modified to fetch repository information if the repository is empty.
+    Fetches all pull requests for a specific repository from GitHub, regardless of their state.
+    
+    Parameters:
+    - owner (str): The username of the repository owner.
+    - repo (str): The repository name.
+    
+    Returns:
+    - prs (list): A list of pull request data in JSON format.
+    
+    Makes paginated API calls to fetch all pull requests. Handles pagination by following
+    the 'next' link provided by GitHub's API until there are no more pages left.
     """
     prs = []
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls?state=all"
@@ -96,23 +127,3 @@ def get_pull_requests(owner, repo):
 
     return prs
 
-def check_rate_limit():
-    """
-    Checks the current rate limit status with GitHub's API.
-    
-    Returns:
-    - remaining (int): The number of requests remaining in the current rate limit window.
-    - reset_time (int): The time at which the current rate limit window resets, in Unix epoch seconds.
-    
-    This function makes an API call to GitHub's rate limit endpoint to check the current status of
-    the core rate limit. It returns the number of remaining requests and the reset time to be used
-    for managing subsequent API calls within rate limits.
-    """
-    url = "https://api.github.com/rate_limit"
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
-    response = requests.get(url, headers=headers).json()
-    core_limit = response['resources']['core']
-    remaining = core_limit['remaining']
-    reset_time = core_limit['reset']
-
-    return remaining, reset_time
