@@ -1,8 +1,8 @@
 # src/spark_process.py
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, when, count, max, split, lower, trim
-from pyspark.sql.types import StructType, StructField, StringType, TimestampType
+from pyspark.sql.functions import col, when, count, max, split, expr, lit, coalesce
+from pyspark.sql.types import StructType, StructField, StringType, TimestampType, IntegerType, BooleanType
 
 def transform_and_save(input_path, output_path):
     """
@@ -13,8 +13,9 @@ def transform_and_save(input_path, output_path):
     - input_path: Path to the input JSON files.
     - output_path: Path where the output Parquet file should be saved.
     """
-    
-    # Define the schema for the JSON data
+    spark = SparkSession.builder.appName("GitHub Data Processing").getOrCreate()
+
+    # Adjusted schema to include repository information
     schema = StructType([
         StructField("id", StringType(), True),
         StructField("state", StringType(), True),
@@ -24,46 +25,42 @@ def transform_and_save(input_path, output_path):
         StructField("closed_at", TimestampType(), True),
         StructField("merged_at", TimestampType(), True),
         StructField("user", StructType([
-            StructField("login", StringType(), True),
+            StructField("login", StringType(), True)
         ]), True),
         StructField("head", StructType([
             StructField("repo", StructType([
                 StructField("id", StringType(), True),
                 StructField("name", StringType(), True),
-                StructField("full_name", StringType(), True),
-            ]), True),
+                StructField("full_name", StringType(), True)
+            ]), True)
         ]), True),
+        # Additional fields for repository details
+        StructField("name", StringType(), True),
+        StructField("owner", StructType([
+            StructField("login", StringType(), True)
+        ]), True),
+        StructField("description", StringType(), True)
     ])
 
-    # Initialize SparkSession
-    spark = SparkSession.builder.appName("Process GitHub Repos").getOrCreate()
-
-    # Read JSON files using the defined schema
     df = spark.read.schema(schema).json(input_path)
 
-    # Check if DataFrame is not empty to proceed with transformation
-    if not df.rdd.isEmpty():
-        # Transformation logic: Split 'full_name' to get 'Organization Name', extract repo details, aggregate, and check compliance
-        transformed_df = df.withColumn("Organization Name", split(col("head.repo.full_name"), "/")[0]) \
-            .withColumn("repository_id", col("head.repo.id")) \
-            .withColumn("repository_name", col("head.repo.name")) \
-            .withColumn("repository_owner", split(col("head.repo.full_name"), "/").getItem(0)) \
-            .groupBy("Organization Name", "repository_id", "repository_name", "repository_owner") \
-            .agg(
-                  count("id").alias("num_prs"),
-                  count(when(col("merged_at").isNotNull(), True)).alias("num_prs_merged"), #Adjusted logic
-                  max("merged_at").alias("latest_merged_at")
-             ) \
-             .withColumn("is_compliant",
-                         ((col("num_prs") == col("num_prs_merged")) & 
-                          lower(trim(col("repository_owner"))).contains("scytale")).cast("boolean"))
-                            
+    # Identify if the data row is PR or repository info based on 'title' or 'name' field presence
+    df = df.withColumn("DataType", when(col("title").isNotNull(), "PR").otherwise("Repo"))
 
-        # Save transformed DataFrame as Parquet, partitioned by 'Organization Name'
-        transformed_df.write.partitionBy("Organization Name").mode("overwrite").parquet(output_path)
-    else:
-        print("No data found in any file.")
+    # Process PR and Repo data separately using 'DataType' column
+    transformed_df = df.withColumn("Organization Name", when(col("DataType") == "PR", split(col("head.repo.full_name"), "/")[0]).otherwise(split(col("owner.login"), "/")[0])) \
+                       .withColumn("repository_id", coalesce(col("head.repo.id"), col("id"))) \
+                       .withColumn("repository_name", coalesce(col("head.repo.name"), col("name"))) \
+                       .withColumn("repository_owner", coalesce(split(col("head.repo.full_name"), "/").getItem(0), col("owner.login"))) \
+                       .groupBy("Organization Name", "repository_id", "repository_name", "repository_owner") \
+                       .agg(
+                           count(when(col("DataType") == "PR", True)).alias("num_prs"),
+                           count(when(col("merged_at").isNotNull(), True)).alias("num_prs_merged"),
+                           max("merged_at").alias("latest_merged_at")
+                       ) \
+                       .withColumn("is_compliant", expr("num_prs_merged > 0 AND lower(trim(repository_owner)) LIKE '%scytale%'").cast(BooleanType()))
 
-    # Stop the Spark session
+    transformed_df.write.partitionBy("Organization Name").mode("overwrite").parquet(output_path)
+
     spark.stop()
 
